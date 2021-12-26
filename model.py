@@ -29,7 +29,7 @@ class NER(nn.Module):
 
     def forward(self,input_ids,attention_mask,labels):
         outputs = self.xlnet(input_ids = input_ids, attention_mask = attention_mask)              # XLNetModel模型输出最后一维为self.xlnet.config.hidden_size
-        output =  self.dropout(outputs.last_hidden_state)                                          # output形状:[batch_size,seq_len,hidden_size]
+        output =  self.dropout(outputs.last_hidden_state)                                         # output形状:[batch_size,seq_len,hidden_size]
         """初始化状态，如果不初始化，torch默认h0,c0初始值为全0"""
         batch_size = output.size(0)                                                               # 获取每次batch的batch_size
         h0 = torch.rand(self.num_layers * 2, batch_size, self.hidden_size).to(device)             # outout:[batch_size,seq_len,hiddden_size * 2]
@@ -39,8 +39,8 @@ class NER(nn.Module):
         output = self.MHA(output,output,output)                                                   # 使用多头注意力机制
         logits = self.linear(output).to(device)
         attention_mask = attention_mask == 1
-        loss = -1*self.crf(emissions = logits,tags = labels,mask = attention_mask,reduction= 'mean')    # crf模型的输出为交叉熵损失,reduction='mean'时输出为每个批次上的平均损失
-        predict = self.crf.decode(output,attention_mask)                                            # 输出预测值
+        loss = -1*self.crf(emissions = logits,tags = labels,mask = attention_mask,reduction= 'mean')    # 输出crf模型的交叉熵损失,reduction='mean'时输出为每个批次上的平均损失
+        predict = self.crf.decode(logits,attention_mask)                                                # 输出预测值
         return loss,predict
 
 # 实现多头注意力机制的处理

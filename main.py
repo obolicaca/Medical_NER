@@ -88,7 +88,6 @@ class Selection():
                 labels = self.encode.embedding_targets(targets).to(device)
                 attention_mask = self.encode.attention_mask(input_ids).to(device)
                 loss,predict = self.model(input_ids=input_ids, attention_mask=attention_mask, labels=labels)    # 获得预测值predict
-
                 labels = labels.data.cpu().numpy()
                 labels_length = [len(target) for target in targets]                                         # 修改labels
                 labels = [labels[i][1:labels_length[i] + 1] for i in range(len(labels_length))]
@@ -124,6 +123,6 @@ class Selection():
         # return acc_temp, precision_temp, recall_temp, f1_temp
 
 if __name__ == '__main__':
-    select = Selection(epochs=1,file_name= 'CCKS2017')
+    select = Selection(epochs=50,file_name= 'CCKS2017')       # 训练批次50轮
     select.train()
     select.eval()
