@@ -53,14 +53,12 @@ class Selection():
         for epoch in range(self.epochs):
             bar = tqdm(enumerate(train_data), desc='进行训练', total=len(train_data))
             loss_all = []
-            acc_all = []
             for index, (sentences, targets) in bar:
-                attention_mask = self.encode.attention_mask(sentences).to(device)                       # 获取attention_mask
-                input_ids = self.encode.embedding_sentences(sentences).to(device)                       # 获取input_ids
-                labels = self.encode.embedding_targets(targets).to(device)                              # 获取labels
-                loss = self.model(input_ids=input_ids, attention_mask = attention_mask,labels = labels) # 获取每个批次的平均损失
+                attention_mask = self.encode.attention_mask(sentences).to(device)                           # 获取attention_mask
+                input_ids = self.encode.embedding_sentences(sentences).to(device)                           # 获取input_ids
+                labels = self.encode.embedding_targets(targets).to(device)                                  # 获取labels
+                loss,predict = self.model(input_ids=input_ids, attention_mask = attention_mask,labels = labels)     # 获取每个批次的平均损失
                 loss_all.append(loss.item())
-
                 """梯度置零，反向传播，参数更新"""
                 optimizer.zero_grad()
                 loss.backward()
@@ -89,15 +87,16 @@ class Selection():
                 input_ids = self.encode.embedding_sentences(sentences).to(device)
                 labels = self.encode.embedding_targets(targets).to(device)
                 attention_mask = self.encode.attention_mask(input_ids).to(device)
+                loss,predict = self.model(input_ids=input_ids, attention_mask=attention_mask, labels=labels)    # 获得预测值predict
+
                 labels = labels.data.cpu().numpy()
-                predict = self.model.predict(input_ids,attention_mask)                              # 获得预测值predict
-                labels_length = [len(target) for target in targets]                                 # 修改labels
+                labels_length = [len(target) for target in targets]                                         # 修改labels
                 labels = [labels[i][1:labels_length[i] + 1] for i in range(len(labels_length))]
-                predict = [predict[i][1:labels_length[i]+ 1] for i in range(len(labels_length))]    # 修改predict
+                predict = [predict[i][1:labels_length[i]+ 1] for i in range(len(labels_length))]            # 修改predict
                 label_all.extend(labels)
                 predict_all.extend(predict)
         with open(os.path.join('./result', self.file_name + '_result.txt'), 'a') as f:
-            for i  in range(20):
+            for i in range(20):
                 result = "\n真实值:"+ str(label_all[i]) +"\n预测值" + str(predict_all[i])
                 f.write(result)
         accuracy_score, precision_score, recall_score, f1_score = self.calculate(label_all, predict_all)
@@ -125,6 +124,6 @@ class Selection():
         # return acc_temp, precision_temp, recall_temp, f1_temp
 
 if __name__ == '__main__':
-    select = Selection(epochs=50,file_name= 'CCKS2017')
-    # select.train()
+    select = Selection(epochs=1,file_name= 'CCKS2017')
+    select.train()
     select.eval()
