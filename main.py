@@ -24,7 +24,7 @@ class Selection():
         self.save_optimizer = os.path.join('./model', self.file_name + '_optimizer.pt')  # 定义保存模型的名称
 
     def train(self):
-        # 进行训练
+        """模型训练"""
         train_data = DataLoad(self.file_name, train = True)
         self.model.train()
         optimizer_param = list(self.model.named_parameters())  # named_parameters()获取模型中的参数和参数名字
@@ -32,7 +32,6 @@ class Selection():
         no_decay = ['bias', 'LayerNorm.bias', 'LayerNorm.weight']  # no_decay中存放不进行权重衰减的参数
         # any()函数用于判断给定的可迭代参数iterable是否全部为False，则返回False，如果有一个为True，则返回True
         # 判断optimizer_param中所有的参数。如果不在no_decay中，则进行权重衰减;如果在no_decay中，则不进行权重衰减
-
         optimizer_grouped_parameters = [
             {'params': [param for name, param in optimizer_param if
                         not any((name in no_decay_name) for no_decay_name in no_decay)], 'weight_decay': 0.01},
@@ -77,11 +76,10 @@ class Selection():
                     torch.save(optimizer.state_dict(), self.save_optimizer)
 
     def eval(self):
-        # 加载模型参数
-        if os.path.exists(self.save_model):
+        """模型评估"""
+        if os.path.exists(self.save_model):                              # 加载模型参数
             self.model.load_state_dict(torch.load(self.save_model))
         self.model.eval()
-        loss_total = []
         predict_all = []
         label_all = []
         test_data = DataLoad(self.file_name,train = False)
@@ -91,32 +89,26 @@ class Selection():
                 input_ids = self.encode.embedding_sentences(sentences).to(device)
                 labels = self.encode.embedding_targets(targets).to(device)
                 attention_mask = self.encode.attention_mask(input_ids).to(device)
-
-                loss = self.model(input_ids=input_ids, attention_mask=attention_mask,labels = labels)
-                loss_total.append(loss.data.cpu().numpy())  # loss_total保存所有损失结果
                 labels = labels.data.cpu().numpy()
-                predict = self.model.predict(input_ids,attention_mask)   # predict为预测标签
-                # 修改labels
-                labels_length = [len(target) for target in targets]
+                predict = self.model.predict(input_ids,attention_mask)                              # 获得预测值predict
+                labels_length = [len(target) for target in targets]                                 # 修改labels
                 labels = [labels[i][1:labels_length[i] + 1] for i in range(len(labels_length))]
-                # 修改predict
-                predict = [predict[i][1:labels_length[i]+ 1] for i in range(len(labels_length))]
+                predict = [predict[i][1:labels_length[i]+ 1] for i in range(len(labels_length))]    # 修改predict
                 label_all.extend(labels)
                 predict_all.extend(predict)
         with open(os.path.join('./result', self.file_name + '_result.txt'), 'a') as f:
             for i  in range(20):
                 result = "\n真实值:"+ str(label_all[i]) +"\n预测值" + str(predict_all[i])
                 f.write(result)
-
-        accuracy_score,precision_score,recall_score,f1_score = self.calculate(label_all,predict_all)
+        accuracy_score, precision_score, recall_score, f1_score = self.calculate(label_all, predict_all)
         with open(os.path.join('./result',self.file_name + '_result.txt'),'a') as f:
-            result = '数据集:'+ str(self.file_name) + '\n准确率为:'+ str(accuracy_score) + '\n精确率为:'+ str(precision_score) + '\n召回率为:'+ str(recall_score) + '\nF1值为:' + str(f1_score) + "\n损失为:" + str(np.mean(loss_total))
+            result = '数据集:'+ str(self.file_name) + '\n准确率为:'+ str(accuracy_score) + '\n精确率为:'+ str(precision_score) + '\n召回率为:'+ str(recall_score) + '\nF1值为:' + str(f1_score)
             f.write(result)
-
-        print('数据集:',self.file_name,'\n准确率为:',accuracy_score,'\n精确率为:',precision_score,'\n召回率为:',recall_score ,'\nF1值为:',f1_score,"\n损失为:",np.mean(loss_total))
-        return accuracy_score,precision_score,recall_score,f1_score,np.mean(loss_total)
+        print('数据集:',self.file_name,'\n准确率为:',accuracy_score,'\n精确率为:',precision_score,'\n召回率为:',recall_score ,'\nF1值为:',f1_score)
+        return accuracy_score,precision_score,recall_score,f1_score
 
     def calculate(self,label_all,predict_all):
+        """计算precision,recall,f1指标"""
         acc_temp = [metrics.accuracy_score(label, predict) for label,predict in zip(label_all,predict_all)]
         precision_temp = [metrics.precision_score(label, predict,average= 'weighted') for label, predict in zip(label_all, predict_all)]
         recall_temp = [metrics.recall_score(label, predict, average='micro') for label, predict in zip(label_all, predict_all)]
@@ -134,5 +126,5 @@ class Selection():
 
 if __name__ == '__main__':
     select = Selection(epochs=50,file_name= 'CCKS2017')
-    select.train()
+    # select.train()
     select.eval()
