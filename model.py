@@ -23,8 +23,8 @@ class NER(nn.Module):
         self.config = XLNetConfig.from_pretrained('xlnet-base-cased',is_encoder_decoder= True)         # 导入配置文件
         self.xlnet = XLNetModel.from_pretrained('xlnet-base-cased',config= self.config)                # 使用XlNet基础模型
         self.bilstm = nn.LSTM(input_size = self.xlnet.config.hidden_size,hidden_size= self.hidden_size,num_layers= self.num_layers,batch_first=True,bidirectional= True)
-        self.MHA = MultiHeadedAttention(head= self.head ,embedding_dim=self.hidden_size,drop = self.drop)      # 引入多头注意力机制
-        self.linear = nn.Linear(self.hidden_size,self.type_num)
+        self.MHA = MultiHeadedAttention(head= self.head, embedding_dim=self.hidden_size*2, drop = self.drop)      # 引入多头注意力机制
+        self.linear = nn.Linear(self.hidden_size * 2,self.type_num)
         self.crf = CRF(num_tags=self.type_num, batch_first= True)
 
     def forward(self,input_ids,attention_mask,labels):
@@ -32,12 +32,11 @@ class NER(nn.Module):
         output =  self.dropout(outputs.last_hidden_state)                                         # output形状:[batch_size,seq_len,hidden_size]
         """初始化状态，如果不初始化，torch默认h0,c0初始值为全0"""
         batch_size = output.size(0)                                                               # 获取每次batch的batch_size
-        h0 = torch.rand(self.num_layers * 2, batch_size, self.hidden_size).to(device)             # outout:[batch_size,seq_len,hiddden_size * 2]
-        c0 = torch.rand(self.num_layers * 2, batch_size, self.hidden_size).to(device)             # hn=cn:[self.num_layers * 2,batch_size,hidden_size]
-        output, (hn, cn) = self.bilstm(output, (h0, c0))                                          # hn为最后一个时刻隐藏层
-        output = output[:,:,:self.hidden_size] + output[:,:,self.hidden_size:]                    # 将两个方向的输出进行拼接由[batch_size,seq_len,hiddden_size * 2]变为[batch_size,seq_len,hiddden_size]
+        h0 = torch.rand(self.num_layers * 2, batch_size, self.hidden_size).to(device)
+        c0 = torch.rand(self.num_layers * 2, batch_size, self.hidden_size).to(device)
+        output, (hn, cn) = self.bilstm(output, (h0, c0))                                          # outout:[batch_size,seq_len,hiddden_size * 2],hn=cn:[self.num_layers * 2,batch_size,hidden_size]
         output = self.MHA(output,output,output)                                                   # 使用多头注意力机制
-        logits = self.linear(output).to(device)
+        logits = self.linear(output)
         attention_mask = attention_mask == 1
         loss = -1*self.crf(emissions = logits,tags = labels,mask = attention_mask,reduction= 'mean')    # 输出crf模型的交叉熵损失,reduction='mean'时输出为每个批次上的平均损失
         predict = self.crf.decode(logits,attention_mask)                                                # 输出预测值
